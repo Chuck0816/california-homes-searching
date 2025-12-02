@@ -1,89 +1,170 @@
-<!doctype html>
-<html lang="zh-CN">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta charset="UTF-8" />
   <title>California Homes</title>
-  <link rel="stylesheet" href="/styles.css?v=20241124_3"/>
-  <meta http-equiv="Cache-Control" content="no-store" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/styles.css" />
 </head>
-
 <body>
-  <!-- 顶部搜索条 -->
+  <!-- 顶部导航 + 搜索条 -->
   <header class="topbar">
-    <div class="wrap">
+    <div class="topwrap">
       <div class="brand">California Homes</div>
 
+      <!-- 搜索表单 -->
       <form id="searchForm" class="searchbar">
-        <input id="q" name="q" placeholder="City / ZIP / Address" autocomplete="off"/>
-        <button class="btn btn-primary" type="submit">Find homes</button>
-        <button id="toggleAdvBtn" class="btn btn-ghost" type="button">More filters</button>
-        <button id="toggleMapBtn" class="btn btn-ghost" type="button">Open map</button>
-      </form>
-    </div>
-    <!-- 高级筛选 -->
-    <section id="advWrap" class="wrap adv hidden">
-      <div class="adv-grid">
-        <label>ZIP
-          <input id="zip" name="zip" placeholder="e.g. 90001"/>
-        </label>
-        <label>Beds ≥
-          <input id="beds" name="beds" type="number" min="0" value="0"/>
-        </label>
-        <label>Baths ≥
-          <input id="baths" name="baths" type="number" min="0" value="0"/>
-        </label>
-        <label>Area ≥ (sqft)
-          <input id="sqftMin" name="sqftMin" type="number" min="0" value="0"/>
-        </label>
-
-        <label>Price min
-          <input id="priceMin" name="priceMin" type="number" min="0" value="0"/>
-        </label>
-        <label>Price max
-          <input id="priceMax" name="priceMax" type="number" min="0" placeholder="no limit"/>
-        </label>
-
-        <label>Sort
-          <select id="sort" name="sort">
-            <option value="price_asc">Price ↑</option>
-            <option value="price_desc">Price ↓</option>
-            <option value="sqft_desc">Area ↓</option>
-            <option value="newest">Newest</option>
-          </select>
-        </label>
-
-        <div class="adv-actions">
-          <button id="applyBtn" class="btn btn-primary" type="button">Apply</button>
-          <button id="resetBtn" class="btn btn-ghost" type="button">Reset</button>
+        <div class="field">
+          <div class="field-label">Destination</div>
+          <input
+            id="q"
+            type="text"
+            placeholder="City, ZIP, or Address"
+            autocomplete="off"
+          />
         </div>
-      </div>
-    </section>
+        <button type="submit" class="btn btn-primary">Find homes</button>
+      </form>
+
+      <!-- 高级搜索、地图按钮 -->
+      <button id="toggleAdvBtn" type="button" class="btn btn-ghost">
+        Advanced
+      </button>
+      <button id="toggleMapBtn" type="button" class="btn btn-ghost">
+        Map
+      </button>
+    </div>
   </header>
 
-  <!-- 主体 -->
-  <main class="wrap">
-    <div id="stats" class="muted"></div>
-    <section id="resultList" class="result-grid"></section>
+  <!-- 主体：左边结果 + 右边地图 -->
+  <main id="mainGrid" class="wrap grid">
+    <!-- 左侧：banner + 筛选 + 结果 -->
+    <section>
+      <div class="hero-banner"></div>
+
+      <div class="toolbar">
+        <div id="stats" class="stats"></div>
+      </div>
+
+      <!-- 高级筛选 -->
+      <div id="advWrap" class="card hidden">
+        <div class="adv">
+          <div class="field">
+            <label class="field-label" for="zip">ZIP</label>
+            <input id="zip" type="text" inputmode="numeric" placeholder="e.g. 95014" />
+          </div>
+          <div class="field">
+            <label class="field-label" for="beds">Beds</label>
+            <input id="beds" type="number" min="0" step="1" placeholder="Any" />
+          </div>
+          <div class="field">
+            <label class="field-label" for="baths">Baths</label>
+            <input id="baths" type="number" min="0" step="1" placeholder="Any" />
+          </div>
+          <div class="field">
+            <label class="field-label" for="sqftMin">Min sqft</label>
+            <input id="sqftMin" type="number" min="0" step="100" placeholder="Any" />
+          </div>
+          <div class="field">
+            <label class="field-label" for="priceMin">Min price</label>
+            <input id="priceMin" type="number" min="0" step="50000" placeholder="Any" />
+          </div>
+          <div class="field">
+            <label class="field-label" for="priceMax">Max price</label>
+            <input id="priceMax" type="number" min="0" step="50000" placeholder="Any" />
+          </div>
+          <div class="field">
+            <label class="field-label" for="sort">Sort</label>
+            <select id="sort">
+              <option value="price_asc">Price ↑</option>
+              <option value="price_desc">Price ↓</option>
+              <option value="sqft_desc">Sqft ↓</option>
+              <option value="newest">Newest</option>
+            </select>
+          </div>
+
+          <div class="adv-actions">
+            <button id="applyBtn" type="button" class="btn btn-primary">
+              Apply
+            </button>
+            <button id="resetBtn" type="button" class="btn btn-ghost">
+              Reset
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 结果列表 -->
+      <div class="card results">
+        <div id="resultList" class="result-list"></div>
+      </div>
+
+    </section>
+    
+ 
+
+
+    <!-- 右侧：地图区域，暂时先放占位地图 -->
+    <aside id="mapPanel">
+      <div id="map" class="mapBox">
+        <!-- 以后你在这里初始化 Google Map 就行 -->
+      </div>
+    </aside>
   </main>
 
-  <!-- Details Modal -->
-  <div id="detailsModal" class="modal hidden" aria-hidden="true">
-    <div class="modal-backdrop" data-close="1"></div>
-    <div class="modal-card">
-      <button class="modal-close" id="closeModalBtn">×</button>
-
-      <div id="detailsBody">
-        <!-- JS 填充 -->
-      </div>
+  <!-- 详情 Modal -->
+  <div
+    id="detailsModal"
+    class="modal hidden"
+    aria-hidden="true"
+  >
+    <div class="modal-content">
+      <button
+        id="closeModalBtn"
+        type="button"
+        class="modal-close"
+        data-close="1"
+      >
+        &times;
+      </button>
+      <div id="detailsBody"></div>
     </div>
   </div>
 
-  <!-- 分文件 JS：注意 type="module" -->
-  <script type="module" src="/js/api.js?v=20241124_3"></script>
-  <script type="module" src="/js/ui.js?v=20241124_3"></script>
-  <script type="module" src="/js/main.js?v=20241124_3"></script>
+
+  <!-- Google Maps：先定义全局回调和全局变量 -->
+  <script>
+    // 全局 map / markers，方便 main.js 访问
+    window.__map = null;
+    window.__markers = [];
+
+    // Google Maps JS 会在加载后自动调用这个函数
+    function initMap() {
+      var el = document.getElementById("map");
+      if (!el) return;
+
+      window.__map = new google.maps.Map(el, {
+        center: { lat: 36.7783, lng: -119.4179 }, // California
+        zoom: 6,
+      });
+
+      // 如果 main.js 已经注册了回调，通知它刷新一下 marker
+      if (typeof window.__onMapReady === "function") {
+        window.__onMapReady(window.__map);
+      }
+    }
+  </script>
+
+  <!-- 真正加载 Google Maps JS：用你的真实 key -->
+  <script
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDeyk-wntsv-8nXazaVc6YjwHjtvJJqy2M&callback=initMap&loading=async"
+    async
+    defer
+  ></script>
+
+  <!-- 最后再加载你的主逻辑（搜索 / 过滤 / 列表 / 地图打点） -->
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>
+
+

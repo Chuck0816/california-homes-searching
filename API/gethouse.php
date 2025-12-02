@@ -9,7 +9,7 @@ ini_set('display_errors', '0');
 while (ob_get_level()) { ob_end_clean(); }
 
 $host     = 'localhost';
-$dbname   = 'boxgra6_cali';
+$dbname   = 'boxgra6_cali';   // ←←← 修正为真实数据库
 $username = 'boxgra6_sd';
 $password = 'Real_estate650$';
 
@@ -43,7 +43,10 @@ try {
   $baths    = max(0, (int)($_GET['baths'] ?? 0));
   $sqftMin  = max(0, (int)($_GET['sqftMin'] ?? 0));
   $priceMin = max(0, (int)($_GET['priceMin'] ?? 0));
-  $priceMax = ($_GET['priceMax'] !== '' ? (int)($_GET['priceMax']) : null);
+
+  $priceMaxRaw = $_GET['priceMax'] ?? '';
+  $priceMax = ($priceMaxRaw !== '' ? (int)$priceMaxRaw : null);
+
   $sort     = $_GET['sort'] ?? 'price_asc';
   $tbl = 'rets_property';
 
@@ -57,18 +60,25 @@ try {
   max 的作用：因为bed不可能是负数，所以当用户输入负数，我们统一用0
   */
 
-
-
   // 检查字段，调用col_exists函数。$在php中表示变量
   $hasPrice  = col_exists($pdo, $tbl, 'ListPrice');
   $hasArea   = col_exists($pdo, $tbl, 'LivingArea');
-  $hasBeds   = col_exists($pdo, $tbl, 'BedroomsTotal');
-  $hasBaths  = col_exists($pdo, $tbl, 'BathroomsTotalInteger');
+
+  // ⚠️ 真实字段：Beds/Baths
+  $hasBeds   = col_exists($pdo, $tbl, 'L_Keyword2');   // Beds
+  $hasBaths  = col_exists($pdo, $tbl, 'LM_Dec_3');     // Baths
+
   $hasLat    = col_exists($pdo, $tbl, 'LMD_MP_Latitude');
   $hasLng    = col_exists($pdo, $tbl, 'LMD_MP_Longitude');
   $hasPhotos = col_exists($pdo, $tbl, 'L_Photos');
-  $hasNewest = col_exists($pdo, $tbl, 'L_UpdateDate');
 
+  // newest 排序用的真实字段（优先级从新到旧）
+  $newestCol = null;
+  if (col_exists($pdo, $tbl, 'ModificationTimestamp')) $newestCol = 'ModificationTimestamp';
+  else if (col_exists($pdo, $tbl, 'MajorChangeTimestamp')) $newestCol = 'MajorChangeTimestamp';
+
+  // 你要的 renter email
+  $hasRenter = col_exists($pdo, $tbl, 'ListAgentEmail');
 
   // SELECT
   $select = [
@@ -76,68 +86,55 @@ try {
     "L_Address AS Address",
     "L_City AS City",
     "L_Zip AS PostalCode",
-    ($hasBeds  ? "BedroomsTotal"         : "NULL AS BedroomsTotal"), // 即使数据库里没有 BedroomsTotal 字段，也帮我生成一个叫 BedroomsTotal 的字段，只不过它的值是 NULL（空）。
-    ($hasBaths ? "BathroomsTotalInteger" : "NULL AS BathroomsTotalInteger"),
+    ($hasBeds  ? "L_Keyword2 AS BedroomsTotal" : "NULL AS BedroomsTotal"),
+    ($hasBaths ? "LM_Dec_3 AS BathroomsTotalInteger" : "NULL AS BathroomsTotalInteger"),
     ($hasArea  ? "LivingArea"            : "NULL AS LivingArea"),
     ($hasPrice ? "ListPrice"             : "NULL AS ListPrice"),
     ($hasLat   ? "LMD_MP_Latitude AS lat": "NULL AS lat"),
     ($hasLng   ? "LMD_MP_Longitude AS lng": "NULL AS lng"),
-    ($hasPhotos ? "L_Photos AS Photos" : "NULL AS Photos")
+    ($hasPhotos ? "L_Photos AS Photos" : "NULL AS Photos"),   // ← 保持原字段
+    ($hasRenter ? "ListAgentEmail AS renteremail" : "NULL AS renteremail") // ← 必须加
   ];
 
   // WHERE
   $where  = ["L_City IS NOT NULL"];
   $params = [];
-  // php 的数组本质都是hash map
 
-  if ($q !== '')  { $where[] = "(L_City LIKE :q OR L_Zip LIKE :q OR L_Address LIKE :q)"; $params[':q'] = "%$q%"; } // key ':q' 对应 %$q%
-
+  if ($q !== '')  { $where[] = "(L_City LIKE :q OR L_Zip LIKE :q OR L_Address LIKE :q)"; $params[':q'] = "%$q%"; }
   if ($zip !== ''){ $where[] = "L_Zip LIKE :zip"; $params[':zip'] = "%$zip%"; }
 
-  if ($beds > 0)  { $where[] = "IFNULL(BedroomsTotal,0) >= :b";  $params[':b'] = $beds; }
-  if ($baths > 0) { $where[] = "IFNULL(BathroomsTotalInteger,0) >= :ba"; $params[':ba'] = $baths; }
-  if ($sqftMin>0) { $where[] = "IFNULL(LivingArea,0) >= :sq"; $params[':sq'] = $sqftMin; }
+  if ($hasBeds && $beds > 0)  { $where[] = "IFNULL(L_Keyword2,0) >= :b";  $params[':b'] = $beds; }
+  if ($hasBaths && $baths > 0){ $where[] = "IFNULL(LM_Dec_3,0) >= :ba"; $params[':ba'] = $baths; }
+  if ($hasArea && $sqftMin>0) { $where[] = "IFNULL(LivingArea,0) >= :sq"; $params[':sq'] = $sqftMin; }
 
   if ($hasPrice && $priceMin>0) { $where[] = "IFNULL(ListPrice,0) >= :pmin"; $params[':pmin'] = $priceMin; }
   if ($hasPrice && $priceMax!==null){ $where[] = "IFNULL(ListPrice,0) <= :pmax"; $params[':pmax'] = $priceMax; }
-  /* Where....Like.. query in sql: 
-  Like: 模糊搜索
-  e.g. WHERE City LIKE '%LA%'
-  输出： Los Angeles, PlaZa, Santa Clara */
 
-  // 排序： 根据前端用户选择的 sort，决定 SQL 的 ORDER BY 内容。
-  $order = "L_ListingID DESC"; // 默认
-  if ($sort==='price_asc')   $order = "ListPrice ASC";
-  if ($sort==='price_desc')  $order = "ListPrice DESC";
-  if ($sort==='sqft_desc')   $order = "LivingArea DESC";
-  if ($sort==='newest')      $order = ($hasNewest ? "L_UpdateDate DESC" : "L_ListingID DESC");
+  // 排序
+  $order = "L_ListingID DESC";
+  if ($sort==='price_asc'  && $hasPrice) $order = "ListPrice ASC";
+  if ($sort==='price_desc' && $hasPrice) $order = "ListPrice DESC";
+  if ($sort==='sqft_desc'  && $hasArea)  $order = "LivingArea DESC";
+  if ($sort==='newest')      $order = ($newestCol ? "$newestCol DESC" : "L_ListingID DESC");
 
-// SQL
-// 这里的 SELECT、WHERE、ORDER 拼成一个 SQL 字符串
-// implode("输出string的string数组", 数组)
+  // SQL
+  $selectStr = implode(", ", $select);
+  $whereStr  = implode(" AND ", $where);
 
-// 先把 SELECT 和 WHERE 拼好（相当于你原逻辑）  
-$selectStr = implode(", ", $select);
-$whereStr  = implode(" AND ", $where);
-
-$sql = <<<SQL
+  $sql = <<<SQL
 SELECT $selectStr
 FROM `$tbl`
 WHERE $whereStr
-ORDER BY $order
+ORDER BY $orderAPI
 LIMIT 100
 SQL;
 
-/* 这里把拼图中所有需要的 SELECT、WHERE、ORDER 拼成一个 SQL 字符串
-   用 implode("输出string的string数组", 数组) */
+  $stmt = $pdo->prepare($sql);
+  $stmt->execute($params);
+  $rows = $stmt->fetchAll();
 
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
-    $rows = $stmt->fetchAll();
-
-    echo json_encode($rows, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); // 输出json给前端
-    exit;
+  echo json_encode($rows, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+  exit;
 
 } catch (Throwable $e) {
     http_response_code(500);
@@ -150,5 +147,3 @@ Notes for this process.
 从 URL -> GET -> WHERE = params -> SQL -> 执行 -> JSON 输出 的完整流程
 https://chatgpt.com/s/t_691e47df85108191a3903d6c6267d382
 */
-
-
