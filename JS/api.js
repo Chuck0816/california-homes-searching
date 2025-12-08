@@ -1,3 +1,5 @@
+// js/api.js
+
 // 负责所有 API 请求
 const BASE = "/api";
 
@@ -10,7 +12,7 @@ function toQuery(params = {}) {
   return usp.toString();
 }
 
-export async function fetchHouses(params) {
+export async function fetchHouses(params = {}) {
   const qs = toQuery(params);
   const url = `${BASE}/gethouse.php${qs ? "?" + qs : ""}`;
 
@@ -24,7 +26,6 @@ export async function fetchDetails(id) {
 
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) {
-    // 后端会返回 JSON error
     let msg = `details HTTP ${res.status}`;
     try {
       const j = await res.json();

@@ -27,6 +27,11 @@ html, body {
   background: var(--bg);
 }
 
+/* 通用隐藏 */
+.hidden {
+  display: none;
+}
+
 /* =========================
    Top Bar + Search
 ========================= */
@@ -51,7 +56,7 @@ html, body {
 
 .brand { font-weight: 700; }
 
-/* 搜索条：只保留 Destination + Button */
+/* 搜索条：Destination + Button */
 .searchbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 140px;
@@ -136,18 +141,16 @@ html, body {
 }
 
 /* 主区域：左边结果 + 右边地图 */
-#mainGrid, .wrap.grid {
+#mainGrid {
   display: grid;
-  grid-template-columns: 1fr 360px; /* 默认就有地图这一列 */
+  grid-template-columns: minmax(0, 1fr); /* 默认只显示左侧 */
   gap: 20px;
   transition: 0.3s ease;
 }
 
-/* 保留 .map-open，效果跟默认一样，方便以后扩展 */
-#mainGrid.map-open, .wrap.grid.map-open {
-  grid-template-columns: 1fr 360px;
+#mainGrid.map-open {
+  grid-template-columns: minmax(0, 1fr) 360px; /* 打开 map 时右侧出现一列 */
 }
-
 
 /* =========================
    Toolbar
@@ -192,47 +195,56 @@ html, body {
   margin-top: 16px;
 }
 
-.home {
+/* 新的卡片样式：配合 ui.js 的 .home-card */
+.home-card {
   background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  padding: 0 0 12px 0;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+  border: 1px solid #e5e7eb;
   overflow: hidden;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
-  border: 1px solid #e5e7eb;
 }
-.home:hover {
+.home-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
 }
 
-.home-photo {
+.home-img {
   width: 100%;
-  aspect-ratio: 3 / 2;
+  aspect-ratio: 4 / 3;
   object-fit: cover;
   display: block;
-  border-bottom: 1px solid #eee;
-}
-.home-photo.placeholder {
-  background: #f3f3f3;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: #777;
-  font-size: 14px;
-  aspect-ratio: 3 / 2;
 }
 
-.home .addr {
+.home-body {
+  padding: 10px 12px 12px;
+}
+
+.home-price {
   font-weight: 700;
   font-size: 15px;
-  margin: 10px 12px 4px;
+  margin-bottom: 4px;
 }
-.home .meta {
-  color: #666;
+
+.home-addr {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.home-meta {
   font-size: 13px;
-  margin: 0 12px 2px;
+  color: #6b7280;
+}
+
+.muted {
+  color: var(--sub);
+  font-size: 14px;
+  text-align: center;
+  padding: 32px 0;
 }
 
 /* =========================
@@ -240,7 +252,11 @@ html, body {
 ========================= */
 #mapPanel {
   padding: 5px;
-  display: flex;
+  display: none; /* 默认隐藏 */
+}
+
+#mainGrid.map-open #mapPanel {
+  display: flex; /* 点击 Map 后展示地图列 */
 }
 
 .mapBox {
@@ -310,11 +326,9 @@ html, body {
   z-index: 300;
 }
 
-
 .modal.hidden {
   display: none;
 }
-
 
 .modal-content {
   width: 90%;
@@ -337,33 +351,11 @@ html, body {
   cursor: pointer;
 }
 
-.modal-photo {
-  width: 100%;
-  border-radius: 12px;
-  margin-bottom: 16px;
-}
-.modal-meta {
-  font-size: 14px;
-  color: #666;
-  margin-top: 6px;
-}
-.modal-price {
-  margin-top: 8px;
-  font-size: 22px;
-  font-weight: bold;
-}
-.modal-map {
-  width: 100%;
-  height: 300px;
-  margin-top: 16px;
-  border-radius: 12px;
-}
-
 /* =========================
    Responsive
 ========================= */
 @media (max-width: 1100px) {
-  #mainGrid.map-open, .wrap.grid.map-open {
+  #mainGrid.map-open {
     grid-template-columns: 1fr 320px;
   }
 }
@@ -372,8 +364,8 @@ html, body {
   .topwrap { grid-template-columns: 1fr; row-gap: 12px; }
   .searchbar { grid-template-columns: 1fr; }
 
-  #mainGrid, #mainGrid.map-open,
-  .wrap.grid, .wrap.grid.map-open {
+  #mainGrid,
+  #mainGrid.map-open {
     grid-template-columns: 1fr;
   }
 
@@ -393,16 +385,3 @@ html, body {
   .hero-banner { height: 260px; }
   .adv { grid-template-columns: 1fr; }
 }
-
-/* 全局工具类 */
-.hidden {
-  display: none !important;
-}
-
-.muted {
-  padding: 24px 0;
-  text-align: center;
-  color: var(--sub);
-  font-size: 14px;
-}
-

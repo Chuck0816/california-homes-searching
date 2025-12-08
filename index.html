@@ -96,19 +96,14 @@
 
       <!-- 结果列表 -->
       <div class="card results">
+        <!-- ⭐ 关键：id = resultList，给 ui.js 用 -->
         <div id="resultList" class="result-list"></div>
       </div>
-
     </section>
-    
- 
 
-
-    <!-- 右侧：地图区域，暂时先放占位地图 -->
+    <!-- 右侧：地图区域 -->
     <aside id="mapPanel">
-      <div id="map" class="mapBox">
-        <!-- 以后你在这里初始化 Google Map 就行 -->
-      </div>
+      <div id="map" class="mapBox"></div>
     </aside>
   </main>
 
@@ -131,40 +126,14 @@
     </div>
   </div>
 
+  <!-- 入口模块 -->
+  <script type="module" src="js/main.js"></script>
 
-  <!-- Google Maps：先定义全局回调和全局变量 -->
-  <script>
-    // 全局 map / markers，方便 main.js 访问
-    window.__map = null;
-    window.__markers = [];
-
-    // Google Maps JS 会在加载后自动调用这个函数
-    function initMap() {
-      var el = document.getElementById("map");
-      if (!el) return;
-
-      window.__map = new google.maps.Map(el, {
-        center: { lat: 36.7783, lng: -119.4179 }, // California
-        zoom: 6,
-      });
-
-      // 如果 main.js 已经注册了回调，通知它刷新一下 marker
-      if (typeof window.__onMapReady === "function") {
-        window.__onMapReady(window.__map);
-      }
-    }
-  </script>
-
-  <!-- 真正加载 Google Maps JS：用你的真实 key -->
+  <!-- Google Maps JS：把 YOUR_GOOGLE_MAPS_API_KEY 换成你的 key -->
   <script
-    src="https://maps.googleapis.com/maps/api/js?key=MyKey"
     async
     defer
+    src="https://maps.googleapis.com/maps/api/js?key=MyKey"
   ></script>
-
-  <!-- 最后再加载你的主逻辑（搜索 / 过滤 / 列表 / 地图打点） -->
-  <script type="module" src="js/main.js"></script>
 </body>
 </html>
-
-

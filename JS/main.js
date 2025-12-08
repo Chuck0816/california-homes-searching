@@ -5,8 +5,6 @@ import { renderHouses, showLoading } from "./ui.js";
 (() => {
   console.log("[main] main.js loaded");
 
-  document.body.classList.remove("dim", "blur", "modal-open");
-
   const el = {
     searchForm: document.getElementById("searchForm"),
     q: document.getElementById("q"),
@@ -32,63 +30,94 @@ import { renderHouses, showLoading } from "./ui.js";
     resetBtn: document.getElementById("resetBtn"),
   };
 
-  console.log("[main] toggleMapBtn =", el.toggleMapBtn);
-
-  // 当前房源数据（给地图打点用）
   let currentRows = [];
+  let map = null;
+  let markers = [];
+  let googleMapsPromise = null;
 
-  // === 地图打点：依赖全局 window.__map / window.__markers ===
-  function syncMapMarkers() {
-    const map = window.__map || null;
-    if (!map) {
-      console.log("[map] map not ready yet");
-      return;
+  // === Google Maps 相关 ===
+  function loadGoogleMaps() {
+    if (googleMapsPromise) return googleMapsPromise;
+
+    googleMapsPromise = new Promise((resolve, reject) => {
+      if (window.google && window.google.maps) {
+        resolve(window.google.maps);
+        return;
+      }
+
+      const start = Date.now();
+      const timer = setInterval(() => {
+        if (window.google && window.google.maps) {
+          clearInterval(timer);
+          resolve(window.google.maps);
+        } else if (Date.now() - start > 15000) {
+          clearInterval(timer);
+          reject(new Error("Google Maps failed to load"));
+        }
+      }, 100);
+    });
+
+    return googleMapsPromise;
+  }
+
+  async function ensureMap() {
+    if (map) return map;
+
+    try {
+      await loadGoogleMaps();
+    } catch (e) {
+      console.error("[map] load error:", e);
+      return null;
     }
 
-    if (!Array.isArray(window.__markers)) {
-      window.__markers = [];
-    }
+    const mapEl = document.getElementById("map");
+    if (!mapEl) return null;
+
+    map = new google.maps.Map(mapEl, {
+      center: { lat: 36.7783, lng: -119.4179 }, // California
+      zoom: 6,
+    });
+
+    return map;
+  }
+
+  async function refreshMap() {
+    // 只有在 map 打开时才需要渲染 marker
+    if (!el.mainGrid?.classList.contains("map-open")) return;
+    if (!Array.isArray(currentRows) || currentRows.length === 0) return;
+
+    const m = await ensureMap();
+    if (!m) return;
 
     // 清除旧 marker
-    window.__markers.forEach((m) => m.setMap(null));
-    window.__markers = [];
+    markers.forEach((mk) => mk.setMap(null));
+    markers = [];
 
     const bounds = new google.maps.LatLngBounds();
     let hasPoint = false;
 
-    currentRows.forEach((row, idx) => {
-      const latRaw = row.lat ?? row.LMD_MP_Latitude;
-      const lngRaw = row.lng ?? row.LMD_MP_Longitude;
-
-      const lat = parseFloat(latRaw);
-      const lng = parseFloat(lngRaw);
-      if (!isFinite(lat) || !isFinite(lng)) {
-        return;
-      }
+    currentRows.forEach((row) => {
+      const lat = Number(row.lat ?? row.LMD_MP_Latitude);
+      const lng = Number(row.lng ?? row.LMD_MP_Longitude);
+      if (!isFinite(lat) || !isFinite(lng)) return;
 
       const pos = { lat, lng };
       const marker = new google.maps.Marker({
         position: pos,
-        map,
+        map: m,
       });
-      window.__markers.push(marker);
+      markers.push(marker);
       bounds.extend(pos);
       hasPoint = true;
     });
 
     if (hasPoint) {
-      map.fitBounds(bounds);
-      console.log("[map] markers count =", window.__markers.length);
+      m.fitBounds(bounds);
+      console.log("[map] markers:", markers.length);
     } else {
-      console.log("[map] rows have no valid lat/lng");
+      console.log("[map] no valid lat/lng in rows");
     }
   }
-
-  // 地图脚本加载完、initMap 被调用后，会触发这个回调
-  window.__onMapReady = function () {
-    console.log("[map] __onMapReady called");
-    syncMapMarkers();
-  };
 
   // === 构造查询参数 ===
   function buildParams() {
@@ -125,21 +154,11 @@ import { renderHouses, showLoading } from "./ui.js";
       showLoading();
       const rows = await fetchHouses(buildParams());
       currentRows = Array.isArray(rows) ? rows : [];
-
-      // 暴露给 console 调试
-      window.__rows = currentRows;
+      window.__rows = currentRows; // 方便你在 console 里调试
 
       renderHouses(currentRows);
 
-      if (el.stats) {
-        el.stats.textContent = `${currentRows.length} results (showing top ${Math.min(
-          currentRows.length,
-          100
-        )})`;
-      }
-
-      // 每次加载完列表，尝试刷新地图打点
-      syncMapMarkers();
+      await refreshMap();
     } catch (e) {
       console.error("[homes] loadHouses error:", e);
       const grid = document.getElementById("resultList");
@@ -166,11 +185,18 @@ import { renderHouses, showLoading } from "./ui.js";
     if (el.sort) el.sort.value = "price_asc";
   }
 
-  // Map 按钮现在只负责把视图滚到地图（手机上好用）
-  function scrollToMap() {
-    console.log("[map] scrollToMap clicked");
-    if (el.mapPanel) {
-      el.mapPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+  function toggleMap() {
+    if (!el.mainGrid) return;
+    const isOpen = el.mainGrid.classList.toggle("map-open");
+    console.log("[map] toggle, open =", isOpen);
+
+    if (isOpen) {
+      // 打开 map 的时候尝试渲染一次 marker
+      refreshMap();
+
+      if (el.mapPanel) {
+        el.mapPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
     }
   }
 
@@ -186,7 +212,7 @@ import { renderHouses, showLoading } from "./ui.js";
     loadHouses();
   });
   el.toggleAdvBtn?.addEventListener("click", toggleAdv);
-  el.toggleMapBtn?.addEventListener("click", scrollToMap);
+  el.toggleMapBtn?.addEventListener("click", toggleMap);
 
   // 初始加载一波房源
   loadHouses();
